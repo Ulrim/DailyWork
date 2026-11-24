@@ -8,16 +8,19 @@ const optionalText = (max: number) =>
     .transform((v) => (v ? v : null));
 const date = z.string().refine(isDateString, "날짜 형식이 올바르지 않습니다.");
 const optionalDate = z
-  .union([date, z.literal(""), z.null(), z.undefined()])
+  .union([date, z.literal("")])
+  .nullish()
   .transform((v) => (v ? v : null));
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "시간 형식이 올바르지 않습니다.");
 const uuid = z.string().uuid("잘못된 식별자입니다.");
 const optionalUuid = z
-  .union([uuid, z.literal(""), z.null(), z.undefined()])
+  .union([uuid, z.literal("")])
+  .nullish()
   .transform((v) => (v ? v : null));
 const percent = z.coerce.number().min(0, "0 이상이어야 합니다.").max(100, "100 이하여야 합니다.");
 const optionalPercent = z
-  .union([z.literal(""), z.null(), z.undefined(), percent])
+  .union([z.literal(""), percent])
+  .nullish()
   .transform((v) => (v === "" || v == null ? null : v));
 
 export const reportItemSchema = z.object({
@@ -26,7 +29,8 @@ export const reportItemSchema = z.object({
   content: text(2000).min(1, "작업내용을 입력해 주세요."),
   result: optionalText(2000),
   quantity: z
-    .union([z.literal(""), z.null(), z.undefined(), z.coerce.number().min(0, "수량은 0 이상이어야 합니다.").max(9999999999)])
+    .union([z.literal(""), z.coerce.number().min(0, "수량은 0 이상이어야 합니다.").max(9999999999)])
+    .nullish()
     .transform((v) => (v === "" || v == null ? null : v)),
   unit: optionalText(20),
   status: z.enum(["in_progress", "completed", "delayed", "on_hold"]),

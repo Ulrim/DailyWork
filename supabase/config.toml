@@ -1,0 +1,17 @@
+# Supabase CLI 설정 (supabase link / supabase db push / supabase start 에서 사용)
+project_id = "culiver-field-management"
+
+[api]
+schemas = ["public"]
+
+[auth]
+site_url = "http://localhost:3000"
+# 계정은 관리자가 생성한다. 자가 가입은 받지 않는다.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+[storage]
+file_size_limit = "10MiB"
