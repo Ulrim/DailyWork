@@ -43,4 +43,4 @@ if (roleError) {
   process.exit(1);
 }
 console.log(`관리자 계정을 만들었습니다: ${email} (${role === "chairman" ? "회장" : "대표이사"})`);
-if (!args.password) console.log(`임시 비밀번호: ${password}\n로그인 후 계정 관리에서 비밀번호를 변경해 주세요.`);
+if (!args.password) console.log(`임시 비밀번호: ${password}\n로그인 후 '내 계정'에서 비밀번호를 변경해 주세요.`);
