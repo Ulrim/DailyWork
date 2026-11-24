@@ -1,6 +1,6 @@
 import {
   Bell, Building2, CalendarDays, ClipboardCheck, ClipboardList, FileBarChart, FileStack, GanttChartSquare, History,
-  LayoutDashboard, ListChecks, Users,
+  LayoutDashboard, ListChecks, UserCog, Users,
 } from "lucide-react";
 import type { NavItem } from "@/lib/nav";
 
@@ -17,6 +17,7 @@ const ICONS = {
   history: History,
   users: Users,
   building: Building2,
+  user: UserCog,
 } as const;
 
 export function NavIcon({ name, className }: { name: NavItem["icon"]; className?: string }) {

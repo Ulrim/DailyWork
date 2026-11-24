@@ -2,7 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { saveReport, type SaveReportInput } from "@/app/(app)/reports/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -82,7 +82,9 @@ export function ReportForm({
   const [pending, startTransition] = useTransition();
   // 최신 상태를 사진 업로드(비동기)에서도 읽을 수 있게 보관한다
   const latest = useRef({ reportId, values, items });
-  latest.current = { reportId, values, items };
+  useEffect(() => {
+    latest.current = { reportId, values, items };
+  });
 
   const set = <K extends keyof typeof values>(key: K, value: string) => setValues((v) => ({ ...v, [key]: value }));
   const setItem = (key: string, patch: Partial<ItemState>) =>

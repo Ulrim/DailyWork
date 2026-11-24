@@ -3,7 +3,7 @@ import type { AppRole } from "./types";
 export interface NavItem {
   href: string;
   label: string;
-  icon: "dashboard" | "report" | "review" | "task" | "calendar" | "progress" | "consolidated" | "output" | "bell" | "history" | "users" | "building";
+  icon: "dashboard" | "report" | "review" | "task" | "calendar" | "progress" | "consolidated" | "output" | "bell" | "history" | "users" | "building" | "user";
   /** 접근 가능한 역할. 생략하면 모든 역할. */
   roles?: AppRole[];
   group: "업무" | "공정·보고" | "관리";
@@ -25,9 +25,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/history", label: "변경 이력", icon: "history", roles: MANAGERS, group: "관리" },
   { href: "/admin/users", label: "계정 관리", icon: "users", roles: MANAGERS, group: "관리" },
   { href: "/admin/projects", label: "사업장 관리", icon: "building", roles: ["executive"], group: "관리" },
+  { href: "/admin/account", label: "내 계정", icon: "user", group: "관리" },
 ];
 
 export function navFor(role: AppRole | null): NavItem[] {
-  if (!role) return NAV_ITEMS.filter((item) => item.href === "/notifications");
+  if (!role) return NAV_ITEMS.filter((item) => item.href === "/notifications" || item.href === "/admin/account");
   return NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
 }

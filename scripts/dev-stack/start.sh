@@ -40,7 +40,8 @@ export GOTRUE_DISABLE_SIGNUP=true GOTRUE_MAILER_AUTOCONFIRM=true GOTRUE_EXTERNAL
 export GOTRUE_RATE_LIMIT_TOKEN_REFRESH=10000 GOTRUE_RATE_LIMIT_VERIFY=10000
 (cd "$STACK/auth" && ./auth migrate >"$STACK/logs/auth-migrate.log" 2>&1) || {
   echo "인증 서버 마이그레이션 실패: $STACK/logs/auth-migrate.log" >&2; exit 1; }
-(cd "$STACK/auth" && nohup ./auth serve >"$STACK/logs/auth.log" 2>&1 & echo $! >"$STACK/auth.pid")
+(cd "$STACK/auth" && exec nohup ./auth serve >"$STACK/logs/auth.log" 2>&1) &
+echo $! >"$STACK/auth.pid"
 
 # 2) 앱 마이그레이션 (새 DB 일 때만)
 if [ "$FRESH" = 1 ]; then
