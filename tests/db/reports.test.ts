@@ -289,3 +289,56 @@ describe("승인 완료 후 수정 요청과 변경 이력", () => {
     expect(cr).toMatchObject({ status: "rejected", reviewer_id: f.manager });
   });
 });
+
+describe("작업일보 일괄 저장(save_report)", () => {
+  const data = (items: unknown[], extra: Record<string, unknown> = {}) =>
+    JSON.stringify({ work_date: "2026-05-06", start_time: "08:00", end_time: "17:00", break_minutes: 60, items, ...extra });
+  const item = (content: string, extra: Record<string, unknown> = {}) => ({ content, status: "in_progress", ...extra });
+
+  it("작업일보와 여러 작업내역을 함께 저장하고, 수정 시 추가·변경·삭제를 반영한다", async () => {
+    const [{ save_report: id }] = await asUser(f.worker, (q) =>
+      q("select save_report($1, null, $2)", [f.projectA, data([item("내역1"), item("내역2", { quantity: 3, unit: "개" })])]),
+    );
+    const before = await sql("select id, content from report_items where report_id = $1 order by sort_order", [id]);
+    expect(before.map((i) => i.content)).toEqual(["내역1", "내역2"]);
+
+    await asUser(f.worker, (q) =>
+      q("select save_report($1, $2, $3)", [
+        f.projectA,
+        id,
+        data([item("내역2 수정", { id: before[1].id }), item("내역3")], { notes: "특이사항" }),
+      ]),
+    );
+    const after = await sql("select id, content, sort_order from report_items where report_id = $1 order by sort_order", [id]);
+    expect(after.map((i) => i.content)).toEqual(["내역2 수정", "내역3"]);
+    expect(after[0].id).toBe(before[1].id);
+    const [row] = await sql("select notes, author_id from daily_reports where id = $1", [id]);
+    expect(row).toMatchObject({ notes: "특이사항", author_id: f.worker });
+  });
+
+  it("작업내역 하나라도 잘못되면 전체 저장이 취소된다", async () => {
+    await expect(
+      asUser(f.worker2, (q) =>
+        q("select save_report($1, null, $2)", [f.projectA, data([item("정상"), item("범위 초과", { process_progress: 150 })])]),
+      ),
+    ).rejects.toThrow(/check constraint/);
+    const rows = await sql("select id from daily_reports where author_id = $1 and work_date = '2026-05-06'", [f.worker2]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("타인의 작업일보나 제출된 작업일보는 저장할 수 없다", async () => {
+    const [{ save_report: id }] = await asUser(f.worker2, (q) =>
+      q("select save_report($1, null, $2)", [f.projectA, data([item("내역")])]),
+    );
+    await expect(
+      asUser(f.worker, (q) => q("select save_report($1, $2, $3)", [f.projectA, id, data([item("변조")])])),
+    ).rejects.toThrow(/수정할 수 없는 작업일보/);
+    await submit(f.worker2, id);
+    await expect(
+      asUser(f.worker2, (q) => q("select save_report($1, $2, $3)", [f.projectA, id, data([item("제출 후 수정")])])),
+    ).rejects.toThrow(/수정할 수 없는 작업일보/);
+    await expect(
+      asUser(f.managerB, (q) => q("select save_report($1, null, $2)", [f.projectA, data([item("타 사업장")])])),
+    ).rejects.toThrow(/row-level security/);
+  });
+});

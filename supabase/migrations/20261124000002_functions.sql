@@ -813,6 +813,85 @@ begin
   );
 end $$;
 
+-- 작업일보와 작업내역을 한 번에(한 트랜잭션으로) 저장한다.
+-- 호출자 권한으로 실행되므로 RLS 와 보호 트리거가 그대로 적용된다.
+-- p_data: { work_date, start_time, end_time, break_minutes, notes, support_request, next_day_plan,
+--           items: [{ id?, process_id, task_id, content, result, quantity, unit, status, task_progress, process_progress }] }
+create or replace function public.save_report(p_project uuid, p_report uuid, p_data jsonb) returns uuid
+language plpgsql set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_item jsonb;
+  v_item_id uuid;
+  v_index integer := 0;
+  v_keep uuid[] := '{}';
+begin
+  if p_report is null then
+    insert into daily_reports (
+      project_id, author_id, work_date, start_time, end_time, break_minutes, notes, support_request, next_day_plan
+    ) values (
+      p_project, auth.uid(),
+      (p_data ->> 'work_date')::date, (p_data ->> 'start_time')::time, (p_data ->> 'end_time')::time,
+      (p_data ->> 'break_minutes')::integer,
+      nullif(btrim(p_data ->> 'notes'), ''), nullif(btrim(p_data ->> 'support_request'), ''),
+      nullif(btrim(p_data ->> 'next_day_plan'), '')
+    ) returning id into v_id;
+  else
+    update daily_reports set
+      work_date = (p_data ->> 'work_date')::date,
+      start_time = (p_data ->> 'start_time')::time,
+      end_time = (p_data ->> 'end_time')::time,
+      break_minutes = (p_data ->> 'break_minutes')::integer,
+      notes = nullif(btrim(p_data ->> 'notes'), ''),
+      support_request = nullif(btrim(p_data ->> 'support_request'), ''),
+      next_day_plan = nullif(btrim(p_data ->> 'next_day_plan'), '')
+    where id = p_report and author_id = auth.uid()
+    returning id into v_id;
+    if v_id is null then
+      raise exception '수정할 수 없는 작업일보입니다. 이미 제출되었거나 권한이 없습니다.' using errcode = '42501';
+    end if;
+  end if;
+
+  for v_item in select * from jsonb_array_elements(coalesce(p_data -> 'items', '[]'::jsonb)) loop
+    if nullif(v_item ->> 'id', '') is not null then
+      update report_items set
+        process_id = nullif(v_item ->> 'process_id', '')::uuid,
+        task_id = nullif(v_item ->> 'task_id', '')::uuid,
+        sort_order = v_index,
+        content = v_item ->> 'content',
+        result = nullif(btrim(v_item ->> 'result'), ''),
+        quantity = nullif(v_item ->> 'quantity', '')::numeric,
+        unit = nullif(btrim(v_item ->> 'unit'), ''),
+        status = v_item ->> 'status',
+        task_progress = nullif(v_item ->> 'task_progress', '')::integer,
+        process_progress = nullif(v_item ->> 'process_progress', '')::numeric
+      where id = (v_item ->> 'id')::uuid and report_id = v_id
+      returning id into v_item_id;
+      if v_item_id is null then
+        raise exception '작업내역을 찾을 수 없습니다. 화면을 새로 고친 뒤 다시 시도해 주세요.' using errcode = 'P0001';
+      end if;
+    else
+      insert into report_items (
+        report_id, project_id, process_id, task_id, sort_order, content, result, quantity, unit,
+        status, task_progress, process_progress
+      ) values (
+        v_id, p_project,
+        nullif(v_item ->> 'process_id', '')::uuid, nullif(v_item ->> 'task_id', '')::uuid, v_index,
+        v_item ->> 'content', nullif(btrim(v_item ->> 'result'), ''),
+        nullif(v_item ->> 'quantity', '')::numeric, nullif(btrim(v_item ->> 'unit'), ''),
+        v_item ->> 'status',
+        nullif(v_item ->> 'task_progress', '')::integer, nullif(v_item ->> 'process_progress', '')::numeric
+      ) returning id into v_item_id;
+    end if;
+    v_keep := v_keep || v_item_id;
+    v_index := v_index + 1;
+  end loop;
+
+  delete from report_items where report_id = v_id and not (id = any (v_keep));
+  return v_id;
+end $$;
+
 -- 담당자가 본인 업무의 진행상태를 갱신한다
 create or replace function public.update_my_task(p_task uuid, p_status text, p_progress integer)
 returns void
