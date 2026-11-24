@@ -64,7 +64,7 @@ echo $! >"$STACK/gateway.pid"
 
 for i in $(seq 1 30); do
   if curl -sf http://127.0.0.1:54321/auth/v1/health >/dev/null 2>&1 \
-     && curl -sf http://127.0.0.1:3001/ >/dev/null 2>&1; then break; fi
+     && grep -q "Schema cache loaded" "$STACK/logs/postgrest.log" 2>/dev/null; then break; fi
   sleep 1
 done
 curl -sf http://127.0.0.1:54321/auth/v1/health >/dev/null || { echo "기동 실패: $STACK/logs 확인" >&2; exit 1; }

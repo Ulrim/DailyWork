@@ -24,5 +24,7 @@ export function toMessage(error: { message?: string; code?: string; details?: st
   }
   if (message.includes("row-level security")) return "이 작업을 수행할 권한이 없습니다.";
   if (message.includes("Invalid login credentials")) return "이메일 또는 비밀번호가 올바르지 않습니다.";
+  // 분류되지 않은 오류는 서버 로그에 남겨 원인을 추적할 수 있게 한다
+  console.error("[처리 오류]", error.code, message, error.details ?? "");
   return "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 }
