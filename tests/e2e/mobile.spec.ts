@@ -86,7 +86,6 @@ test("작업일보 작성: 입력 검증 → 사진 → 임시저장 → 제출"
   // 사진 업로드 (아직 저장 전이므로 자동으로 임시저장된다)
   await page.getByTestId("album-input").setInputFiles({ name: "site.png", mimeType: "image/png", buffer: photo() });
   await expect(page.getByAltText("현장 사진")).toHaveCount(1, { timeout: 20_000 });
-  await expect(page).toHaveURL(/\/reports\/[0-9a-f-]+\/edit$/);
   const imageOk = await page.getByAltText("현장 사진").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0);
   expect(imageOk).toBe(true);
   // 2000px 사진이 1600px 이하로 축소되어 올라간다
@@ -96,6 +95,13 @@ test("작업일보 작성: 입력 검증 → 사진 → 임시저장 → 제출"
   await page.getByRole("button", { name: "임시저장" }).click();
   await expect(page.getByRole("status").filter({ hasText: "임시저장했습니다" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  // 새로 고쳐도 임시저장한 내용과 사진이 남아 있다
+  await page.reload();
+  await expect(page).toHaveURL(/\/reports\/[0-9a-f-]+\/edit$/);
+  await expect(page.locator("#notes")).toHaveValue("E2E 특이사항: 배관 자재 일부 미입고");
+  await expect(page.getByTestId("report-item")).toHaveCount(2);
+  await expect(page.getByAltText("현장 사진")).toHaveCount(1);
 
   await page.getByRole("button", { name: "제출", exact: true }).click();
   await expect(page).toHaveURL(/\/reports\/[0-9a-f-]+$/);

@@ -25,7 +25,7 @@ export function BottomNav({ canWrite }: { canWrite: boolean }) {
           if (!tab) {
             return (
               <li key="write" className="flex items-start justify-center">
-                {canWrite && (
+                {canWrite && !/^\/reports\/(new|[^/]+\/edit)$/.test(pathname) && (
                   <Link
                     href="/reports/new"
                     aria-label="오늘 작업일보 작성"

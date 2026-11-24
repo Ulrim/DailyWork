@@ -131,6 +131,19 @@ async function storage(req, res, pathname, search) {
       return json(res, 200, names.map((name) => visible.includes(name) ? { path: name, signedURL: make(name), error: null } : { path: name, signedURL: null, error: "Either the object does not exist or you do not have access to it" }));
     }
 
+    // 인증된 사용자의 직접 내려받기 (백업 스크립트 등). 조회 권한은 select 정책으로 판단한다.
+    if (req.method === "GET") {
+      const [bucket, ...rest] = parts.slice(parts[1] === "authenticated" ? 2 : 1);
+      const name = rest.join("/");
+      const rows = await asCaller(claims, async (c) =>
+        (await c.query("select metadata from storage.objects where bucket_id = $1 and name = $2", [bucket, name])).rows,
+      );
+      const full = filePath(bucket, name);
+      if (!rows.length || !fs.existsSync(full)) return json(res, 400, { statusCode: "404", error: "not_found", message: "Object not found" });
+      res.writeHead(200, { ...CORS, "content-type": rows[0].metadata?.mimetype ?? "application/octet-stream" });
+      return fs.createReadStream(full).pipe(res);
+    }
+
     // 업로드
     if (req.method === "POST") {
       const [bucket, ...rest] = parts.slice(1);

@@ -40,6 +40,9 @@ node --env-file=.env.production.local scripts/backup-photos.mjs backups/photos
 
 ## 3. 복원
 
+복원 스크립트는 **데이터만** 교체한다. 테이블 구조와 권한 정책은 마이그레이션으로 관리하므로 건드리지 않는다.
+전체가 한 트랜잭션으로 실행되어, 중간에 실패하면 아무것도 바뀌지 않는다.
+
 ### 3-1. 같은 프로젝트에서 데이터 사고 복구 (잘못된 대량 수정·삭제)
 
 가장 안전한 방법은 대시보드의 자동 백업/PITR 복원이다. 별도 백업 파일로 되돌릴 때는:
@@ -49,8 +52,9 @@ export SUPABASE_DB_URL="postgresql://..."
 scripts/restore-db.sh backups/culiver-db-20261124-023000.dump
 ```
 
-- `public` 스키마(앱 데이터)를 백업 시점으로 되돌린다. 확인 문구 `RESTORE` 를 입력해야 실행된다.
-- 백업 시점 이후에 만든 계정은 로그인 계정(auth)만 남고 프로필이 없어 로그인이 거부된다. 계정 관리에서 다시 만들거나 3-2 방식으로 계정까지 복원한다.
+- 앱 데이터(`public` 스키마의 모든 테이블)를 비우고 백업 시점의 내용으로 채운다. 확인 문구 `RESTORE` 를 입력해야 실행된다.
+- 로그인 계정(auth)은 그대로 둔다. 백업 시점 이후에 만든 계정은 프로필이 없어 로그인이 거부되므로, 계정 관리에서 다시 만든다.
+- 백업 시점 이후에 올린 사진 파일은 저장소에 남지만 작업일보와의 연결은 사라진다.
 
 ### 3-2. 새 프로젝트로 이전·복제 (재해 복구, 스테이징 복제)
 
@@ -58,15 +62,17 @@ scripts/restore-db.sh backups/culiver-db-20261124-023000.dump
 # 1) 새 Supabase 프로젝트에 마이그레이션 적용
 npx supabase link --project-ref <새 프로젝트 ref> && npx supabase db push
 
-# 2) 계정과 데이터 넣기 (새 프로젝트가 비어 있어야 한다)
+# 2) 계정과 데이터 넣기 (계정이 하나도 없는 새 프로젝트여야 한다)
 export SUPABASE_DB_URL="postgresql://...새 프로젝트..."
-scripts/restore-db.sh backups/culiver-db-20261124-023000.dump --data-only
+scripts/restore-db.sh backups/culiver-db-20261124-023000.dump --with-accounts
 
 # 3) 사진 파일 올리기 (.env 는 새 프로젝트의 값)
 node --env-file=.env.restore.local scripts/restore-photos.mjs backups/photos
 ```
 
-`--data-only` 복원은 트리거를 끄고 넣기 위해 DB 소유자 권한(`postgres` 계정)이 필요하다.
+`--with-accounts` 는 로그인 계정(`auth.users`, `auth.identities`)을 비밀번호 포함 그대로 옮기므로 사용자는 기존 비밀번호로 로그인한다.
+
+복원은 트리거와 외래키 검사를 잠시 끄기 위해 `session_replication_role` 을 바꾼다. Supabase 의 `postgres` 계정(Direct connection 또는 Session pooler)으로 접속해야 한다.
 
 ### 3-3. 복원 후 확인
 

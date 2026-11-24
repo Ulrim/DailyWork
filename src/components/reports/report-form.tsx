@@ -115,7 +115,7 @@ export function ReportForm({
       const next = list.map((i) => (isBlank(i) ? i : { ...i, id: itemIds[n++] ?? i.id }));
       return next;
     });
-    if (!current.reportId) window.history.replaceState(null, "", `/reports/${id}/edit`);
+    // 주소는 바꾸지 않는다. 새로 고치면 /reports/new 가 저장된 작업일보의 수정 화면으로 이동시킨다.
     return id;
   }
 
